@@ -26,7 +26,7 @@
 </script>
 
 <div class="page">
-  <div class="content" style="max-width: 760px">
+  <div class="content">
     <h2>Element colors</h2>
     <div class="setting">
       <div class="what">

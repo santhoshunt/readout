@@ -114,6 +114,9 @@ input:focus, select:focus { border-color: var(--el-accent); }
   background: var(--tint);
   box-shadow: -10px 0 0 var(--tint), -13px 0 0 var(--el-changedMark);
 }
+/* List markers sit left of the item, where the bar would cover them; color the marker instead. */
+.md li.changed { box-shadow: none; }
+.md li.changed::marker { color: var(--el-changedMark); font-weight: 600; }
 .md .front-matter { font-size: 0.85em; margin-bottom: 1.5em; }
 .md .front-matter td:first-child { color: var(--el-mutedText); white-space: nowrap; }
 .md .front-matter td { vertical-align: top; white-space: pre-wrap; }
@@ -171,7 +174,8 @@ kbd { font-family: var(--mono); font-size: 11px; color: var(--el-chromeMuted); }
 .page { position: absolute; inset: 0; display: flex; background: var(--el-pageBg); color: var(--el-text); user-select: none; }
 .page .nav { width: 240px; background: var(--el-chromePanel); border-right: 1px solid var(--el-chromeBorder); padding: 10px 0; overflow: auto; }
 .page .nav input { margin: 0 10px 8px; width: calc(100% - 20px); }
-.page .content { flex: 1; overflow: auto; padding: 24px 32px; max-width: 900px; }
+.page .content { flex: 1; overflow: auto; padding: 24px 32px; }
+.page .content > * { max-width: 860px; }
 .page h2 { margin: 0 0 16px; font-size: 18px; font-weight: 600; }
 .page h3 { font-size: 13px; color: var(--el-mutedText); margin: 22px 0 6px; font-weight: 600; }
 .setting { display: flex; gap: 16px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--el-chromeBorder); }

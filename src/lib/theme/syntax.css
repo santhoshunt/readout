@@ -20,4 +20,8 @@
 .md pre .syn-entity.syn-other.syn-attribute-name,
 .md pre .syn-support.syn-type.syn-property-name { color: var(--el-synFunction); }
 .md pre .syn-string .syn-punctuation { color: var(--el-synString); }
+.md pre .syn-markup.syn-inserted { color: var(--el-synString); }
+.md pre .syn-markup.syn-deleted { color: var(--el-synConstant); }
+.md pre .syn-meta.syn-diff.syn-range,
+.md pre .syn-meta.syn-diff.syn-header { color: var(--el-synFunction); }
 .md pre .syn-comment .syn-punctuation { color: var(--el-synComment); }

@@ -2,6 +2,8 @@
 
 Readout is a read-only Markdown viewer for Windows. It opens every file as a tab in one window, watches the folders AI agents write to, and lets you pick a color for each document element.
 
+![Readout showing a rate-limiting plan with a Mermaid sequence diagram, the explorer with new and changed badges, and the outline](docs/screenshots/main-window.png)
+
 ## What it does
 
 - Opens `.md` files in browser-style tabs. A second double-click, a multi-select in Explorer, or `readout file.md` in a terminal adds tabs to the running window.
@@ -13,6 +15,26 @@ Readout is a read-only Markdown viewer for Windows. It opens every file as a tab
 - Quick open (Ctrl+P) with a preview: type a file name, `>` for commands, `@` for headings in this file, `#` for headings in every file.
 - Dark theme by default, a light theme, or follow Windows. Every element color is editable in Settings, Element colors.
 - Works offline. Readout never writes to your Markdown files.
+
+## Screenshots
+
+The screenshots use a sample project, a small notes API, with planning docs of the kind a coding agent writes.
+
+**Changed since you last looked.** The agent ticked a step and added a risk while the file was open. Readout reloaded in place and marked the three changed blocks.
+
+![A plan with a ticked task and two renumbered risks highlighted as changed, and "3 sections changed" in the status bar](docs/screenshots/changed-sections.png)
+
+**Quick open with preview.** Ctrl+P searches file names. `#` searches headings in every file, `@` searches this file, and `>` runs commands.
+
+![The quick open box with a matching review file on the left and its rendered preview on the right](docs/screenshots/quick-open.png)
+
+**Light theme and diagrams.** Graphviz and Mermaid diagrams render offline and follow the theme colors.
+
+![An architecture page in the light theme with a Graphviz diagram and a Mermaid flowchart](docs/screenshots/light-theme.png)
+
+**A color for every element.** Each heading level, links, code, alerts, tables, diagrams and the app's own panels have their own color, kept separately for the dark and light themes.
+
+![The element colors page with a swatch for each heading level and text style](docs/screenshots/element-colors.png)
 
 ## Keys
 
@@ -36,7 +58,9 @@ Right-click a tab to pin it, middle-click to close it, and drag to reorder.
 
 ## Install
 
-Run `Readout_0.1.0_x64-setup.exe`. It installs for the current user without admin rights and adds:
+Download `Readout_0.1.0_x64-setup.exe` from the [Releases page](https://github.com/santhoshunt/readout/releases) and run it. The installer isn't code-signed yet, so Windows SmartScreen shows "Windows protected your PC" the first time: choose More info, then Run anyway. The release notes list the file's SHA-256 hash for checking the download.
+
+It installs for the current user without admin rights and adds:
 
 - "Open folder in Readout" when you right-click a folder or the empty space inside one, under Show more options on Windows 11.
 - "Open in Readout" when you right-click `.md` and `.markdown` files.
