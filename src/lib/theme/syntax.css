@@ -1,0 +1,23 @@
+/* syntect emits one class per scope atom with the syn- prefix, e.g. "syn-keyword syn-control".
+   Later rules are more specific and win. */
+.md pre .syn-keyword,
+.md pre .syn-storage { color: var(--el-synKeyword); }
+.md pre .syn-string { color: var(--el-synString); }
+.md pre .syn-comment { color: var(--el-synComment); font-style: italic; }
+.md pre .syn-constant { color: var(--el-synConstant); }
+.md pre .syn-constant.syn-numeric { color: var(--el-synNumber); }
+.md pre .syn-punctuation { color: var(--el-synPunctuation); }
+.md pre .syn-entity.syn-name.syn-function,
+.md pre .syn-support.syn-function,
+.md pre .syn-meta.syn-function-call .syn-variable.syn-function { color: var(--el-synFunction); }
+.md pre .syn-storage.syn-type,
+.md pre .syn-support.syn-type,
+.md pre .syn-support.syn-class,
+.md pre .syn-entity.syn-name.syn-type,
+.md pre .syn-entity.syn-name.syn-class,
+.md pre .syn-entity.syn-name.syn-struct,
+.md pre .syn-entity.syn-name.syn-tag { color: var(--el-synType); }
+.md pre .syn-entity.syn-other.syn-attribute-name,
+.md pre .syn-support.syn-type.syn-property-name { color: var(--el-synFunction); }
+.md pre .syn-string .syn-punctuation { color: var(--el-synString); }
+.md pre .syn-comment .syn-punctuation { color: var(--el-synComment); }

@@ -1,0 +1,44 @@
+[package]
+name = "readout"
+version = "0.1.0"
+description = "A read-only Markdown viewer for Windows that opens files in tabs and watches AI agent output folders"
+authors = ["Santhosh K"]
+license = "MIT"
+repository = "https://github.com/santhoshunt/readout"
+edition = "2024"
+rust-version = "1.90"
+
+[lib]
+name = "readout_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-single-instance = "2.5"
+tauri-plugin-dialog = "2.8"
+tauri-plugin-opener = "2.7"
+comrak = { version = "0.59", default-features = false, features = ["syntect"] }
+# comrak's syntect feature leaves the regex engine to us; fancy-regex is pure Rust, so no C build.
+syntect = { version = "5.3", default-features = false, features = ["default-fancy"] }
+notify-debouncer-full = "0.7"
+similar = "3.2"
+ignore = "0.4"
+nucleo-matcher = "0.3"
+ammonia = "4.2"
+which = "8.0"
+shell-words = "1.1"
+yaml-rust2 = "0.13"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+percent-encoding = "2.3"
+thiserror = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
