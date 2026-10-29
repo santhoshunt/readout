@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Readout",
   "mainBinaryName": "readout",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.santhoshunt.readout",
   "build": {
     "frontendDist": "../dist",
@@ -24,11 +24,12 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http://readout-file.localhost; font-src 'self' data:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http://readout-file.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://readout-file.localhost"
     }
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["nsis"],
     "publisher": "Santhosh K",
     "copyright": "Copyright (c) 2026 Santhosh K",
@@ -54,6 +55,13 @@
         "installMode": "currentUser",
         "installerHooks": "./windows/hooks.nsh"
       }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM0MTkwRUZDMkJEMTdGOTQKUldTVWY5RXIvQTRaeElTZ2ZyOTFDcWVIc2d2YUptdXNhaWFST2lUY2pPcVFqR250WFFCZXRMN2wK",
+      "endpoints": ["https://github.com/santhoshunt/readout/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
     }
   }
 }

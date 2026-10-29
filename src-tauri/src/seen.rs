@@ -28,7 +28,7 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-fn mtime_ms(meta: &std::fs::Metadata) -> u64 {
+pub(crate) fn mtime_ms(meta: &std::fs::Metadata) -> u64 {
     meta.modified()
         .ok()
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
@@ -51,6 +51,11 @@ fn snapshot_dir(app: &AppHandle) -> AppResult<PathBuf> {
 
 fn snapshot_path(app: &AppHandle, path: &Path) -> AppResult<PathBuf> {
     Ok(snapshot_dir(app)?.join(format!("{:016x}.md", fnv1a(&path_key(path)))))
+}
+
+/// The snapshot before the current one, for the "what changed" view.
+fn previous_path(app: &AppHandle, path: &Path) -> AppResult<PathBuf> {
+    Ok(snapshot_dir(app)?.join(format!("{:016x}.prev.md", fnv1a(&path_key(path)))))
 }
 
 fn with_entries<T>(app: &AppHandle, f: impl FnOnce(&mut HashMap<String, SeenEntry>) -> T) -> T {
@@ -84,10 +89,13 @@ pub fn changed_ranges(app: &AppHandle, path: &Path, text: &str) -> Vec<LineRange
     let Ok(old) = std::fs::read_to_string(snap) else {
         return Vec::new();
     };
+    // Compare without line endings: the split editor works in LF while the file may be CRLF, and
+    // that alone must not mark every line as changed. Line numbers are the same either way.
+    let (old, text) = (old.replace("\r\n", "\n"), text.replace("\r\n", "\n"));
     if old == text {
         return Vec::new();
     }
-    let diff = similar::TextDiff::from_lines(&old, text);
+    let diff = similar::TextDiff::from_lines(&old, &text);
     diff.ops()
         .iter()
         .filter_map(|op| {
@@ -105,12 +113,96 @@ pub fn changed_ranges(app: &AppHandle, path: &Path, text: &str) -> Vec<LineRange
         .collect()
 }
 
+/// One row of the side-by-side "what changed" view.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffRow {
+    /// "same", "added", "removed" or "changed".
+    pub kind: &'static str,
+    pub old_line: Option<u32>,
+    pub new_line: Option<u32>,
+    pub old_text: String,
+    pub new_text: String,
+}
+
+fn row(kind: &'static str, old: Option<(usize, &str)>, new: Option<(usize, &str)>) -> DiffRow {
+    let clean = |s: &str| s.trim_end_matches(['\r', '\n']).to_string();
+    DiffRow {
+        kind,
+        old_line: old.map(|(i, _)| i as u32 + 1),
+        new_line: new.map(|(i, _)| i as u32 + 1),
+        old_text: old.map(|(_, s)| clean(s)).unwrap_or_default(),
+        new_text: new.map(|(_, s)| clean(s)).unwrap_or_default(),
+    }
+}
+
+/// The file as it is now against the snapshot from the last time it was read. With no snapshot,
+/// every line counts as added.
+#[tauri::command]
+pub fn diff_file(app: AppHandle, path: String) -> AppResult<Vec<DiffRow>> {
+    let p = crate::workspace::normalize(Path::new(&path));
+    let (new, _) = crate::render::read_text(&p)?;
+    let read = |s: AppResult<PathBuf>| s.ok().and_then(|s| std::fs::read_to_string(s).ok());
+    // A file you are looking at was already marked read, so its snapshot equals the file. The
+    // changes you were shown are then against the version before that, kept as the previous snapshot.
+    let old = match read(snapshot_path(&app, &p)) {
+        Some(snap) if snap != new => snap,
+        _ => read(previous_path(&app, &p)).unwrap_or_default(),
+    };
+    let old_lines: Vec<&str> = old.split_inclusive('\n').collect();
+    let new_lines: Vec<&str> = new.split_inclusive('\n').collect();
+    let diff = similar::TextDiff::from_lines(&old, &new);
+    let mut rows = Vec::new();
+    for op in diff.ops() {
+        let (tag, o, n) = op.as_tag_tuple();
+        match tag {
+            similar::DiffTag::Equal => {
+                for (a, b) in o.clone().zip(n.clone()) {
+                    rows.push(row(
+                        "same",
+                        Some((a, old_lines[a])),
+                        Some((b, new_lines[b])),
+                    ));
+                }
+            }
+            similar::DiffTag::Delete => rows.extend(
+                o.clone()
+                    .map(|a| row("removed", Some((a, old_lines[a])), None)),
+            ),
+            similar::DiffTag::Insert => rows.extend(
+                n.clone()
+                    .map(|b| row("added", None, Some((b, new_lines[b])))),
+            ),
+            similar::DiffTag::Replace => {
+                // Pair lines up as "changed" side by side; the longer side's extra lines stand alone.
+                let (os, ns): (Vec<usize>, Vec<usize>) = (o.clone().collect(), n.clone().collect());
+                for k in 0..os.len().max(ns.len()) {
+                    let a = os.get(k).map(|&a| (a, old_lines[a]));
+                    let b = ns.get(k).map(|&b| (b, new_lines[b]));
+                    let kind = match (a, b) {
+                        (Some(_), Some(_)) => "changed",
+                        (Some(_), None) => "removed",
+                        _ => "added",
+                    };
+                    rows.push(row(kind, a, b));
+                }
+            }
+        }
+    }
+    Ok(rows)
+}
+
 #[tauri::command]
 pub fn mark_seen(app: AppHandle, path: String) -> AppResult<()> {
     let p = PathBuf::from(&path);
     let meta = std::fs::metadata(&p)?;
     let text = std::fs::read(&p)?;
-    std::fs::write(snapshot_path(&app, &p)?, &text)?;
+    let snap = snapshot_path(&app, &p)?;
+    // Keep the outgoing snapshot when the content moved on, so the diff view can still show those changes.
+    if std::fs::read(&snap).is_ok_and(|old| old != text) {
+        let _ = std::fs::rename(&snap, previous_path(&app, &p)?);
+    }
+    std::fs::write(&snap, &text)?;
     let entry = SeenEntry {
         mtime_ms: mtime_ms(&meta),
         len: meta.len(),
@@ -136,7 +228,9 @@ pub fn cleanup(app: &AppHandle) {
             .map(|k| format!("{:016x}.md", fnv1a(k)))
             .collect();
         for f in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-            if !keep.contains(&f.file_name().to_string_lossy().to_string()) {
+            // "<hash>.prev.md" belongs to the same file as "<hash>.md".
+            let name = f.file_name().to_string_lossy().replace(".prev.md", ".md");
+            if !keep.contains(&name) {
                 let _ = std::fs::remove_file(f.path());
             }
         }

@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { baseName, isUnder, pathKey } from '../lib/ipc'
+  import { baseName, dirName, isUnder, pathKey } from '../lib/ipc'
   import { settings } from '../lib/stores/settings.svelte'
+  import { tabs } from '../lib/stores/tabs.svelte'
   import { workspace } from '../lib/stores/workspace.svelte'
   import TreeNode from './TreeNode.svelte'
 
@@ -14,9 +15,13 @@
   })
 </script>
 
-<div class="panel-title">EXPLORER</div>
 {#if !shown.length}
-  <div style="padding: 8px 12px"><button onclick={onopenfolder}>Open folder</button></div>
+  <div style="padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start">
+    {#if tabs.current}
+      <button onclick={() => workspace.addRoot(dirName(tabs.current!.path))} title={dirName(tabs.current.path)}>Open containing folder</button>
+    {/if}
+    <button onclick={onopenfolder}>Open folder…</button>
+  </div>
 {/if}
 {#each shown as { p, watched } (pathKey(p))}
   {@const k = pathKey(p)}

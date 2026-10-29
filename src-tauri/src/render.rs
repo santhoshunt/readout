@@ -15,7 +15,7 @@ use crate::error::{AppError, AppResult};
 use crate::seen;
 use crate::workspace::normalize;
 
-const PLAIN_TEXT_LIMIT: usize = 10 * 1024 * 1024;
+pub const PLAIN_TEXT_LIMIT: usize = 10 * 1024 * 1024;
 const DIAGRAM_LANGS: [&str; 5] = ["mermaid", "dot", "graphviz", "plantuml", "puml"];
 const CLASS_PREFIXES: [&str; 7] = [
     "syn-",
@@ -55,6 +55,10 @@ pub struct RenderedDoc {
     pub resolved_paths: HashMap<String, ResolvedPath>,
     pub plain_text_fallback: bool,
     pub lossy: bool,
+    /// Modification time of the file when it was read; writes send it back to detect changes on disk.
+    pub mtime_ms: u64,
+    /// The file uses CRLF line endings, which saves keep.
+    pub crlf: bool,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -275,10 +279,17 @@ fn clean_html(html: &str, base: PathBuf) -> String {
     b.clean(html).to_string()
 }
 
-pub fn render_text(app: &AppHandle, path: &Path, text: &str, lossy: bool) -> RenderedDoc {
+pub fn render_text(
+    app: &AppHandle,
+    path: &Path,
+    text: &str,
+    lossy: bool,
+    mtime_ms: u64,
+) -> RenderedDoc {
     let doc_dir = path.parent().map(Path::to_path_buf).unwrap_or_default();
     let changed_ranges = seen::changed_ranges(app, path, text);
     let path_str = path.to_string_lossy().to_string();
+    let crlf = text.contains("\r\n");
 
     if text.len() > PLAIN_TEXT_LIMIT {
         return RenderedDoc {
@@ -294,6 +305,8 @@ pub fn render_text(app: &AppHandle, path: &Path, text: &str, lossy: bool) -> Ren
             resolved_paths: HashMap::new(),
             plain_text_fallback: true,
             lossy,
+            mtime_ms,
+            crlf,
         };
     }
 
@@ -377,6 +390,8 @@ pub fn render_text(app: &AppHandle, path: &Path, text: &str, lossy: bool) -> Ren
         resolved_paths,
         plain_text_fallback: false,
         lossy,
+        mtime_ms,
+        crlf,
     }
 }
 
@@ -396,7 +411,22 @@ pub async fn render_file(app: AppHandle, path: String) -> AppResult<RenderedDoc>
     tauri::async_runtime::spawn_blocking(move || {
         let p = normalize(Path::new(&path));
         let (text, lossy) = read_text(&p)?;
-        Ok(render_text(&app, &p, &text, lossy))
+        let mtime = std::fs::metadata(&p)
+            .map(|m| seen::mtime_ms(&m))
+            .unwrap_or(0);
+        Ok(render_text(&app, &p, &text, lossy, mtime))
+    })
+    .await
+    .map_err(|e| AppError::Io(std::io::Error::other(e.to_string())))?
+}
+
+/// Renders unsaved editor text for the split view's live preview. Relative links and images
+/// resolve against `path`, the file being edited.
+#[tauri::command]
+pub async fn render_markdown(app: AppHandle, path: String, text: String) -> AppResult<RenderedDoc> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let p = normalize(Path::new(&path));
+        Ok(render_text(&app, &p, &text, false, 0))
     })
     .await
     .map_err(|e| AppError::Io(std::io::Error::other(e.to_string())))?

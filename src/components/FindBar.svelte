@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { fly } from 'svelte/transition'
+  import { motion } from '../lib/motion'
   import { Finder } from '../lib/render/find'
   import { tabs } from '../lib/stores/tabs.svelte'
   import { ui } from '../lib/stores/ui.svelte'
@@ -34,7 +36,7 @@
   }
 </script>
 
-<div class="findbar">
+<div class="findbar" transition:fly={{ y: -8, duration: motion.dur(), easing: motion.ease }}>
   <input bind:this={input} bind:value={query} onkeydown={onKey} placeholder="Find in page" spellcheck="false" />
   <span class="muted">{count ? `${pos} of ${count}` : query ? 'No results' : ''}</span>
   <button aria-label="Previous match" onclick={() => { finder.step(-1); pos = finder.index + 1 }}>↑</button>

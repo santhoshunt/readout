@@ -1,3 +1,4 @@
+mod edit;
 mod editor;
 mod error;
 mod protocol;
@@ -52,14 +53,22 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
         .manage(StartupPaths(Mutex::new(startup)))
         .manage(settings::SettingsState(Mutex::new(None)))
         .manage(seen::SeenState(Mutex::new(None)))
         .manage(search::SearchState(Mutex::new(search::Index::default())))
         .manage(watch::WatchState(Mutex::new(None)))
+        .manage(edit::OwnWrites(Mutex::new(Default::default())))
         .register_asynchronous_uri_scheme_protocol("readout-file", protocol::handle)
         .setup(|app| {
             seen::cleanup(app.handle());
+            // The updater only acts when the front end calls check(); nothing runs at startup on its own.
+            // It refuses to start without its config (endpoint and public key), so builds without one still run.
+            if app.config().plugins.0.contains_key("updater") {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -75,6 +84,13 @@ pub fn run() {
             editor::detect_editors,
             editor::open_in_editor,
             watch::update_watch,
+            render::render_markdown,
+            edit::read_source,
+            edit::save_file,
+            edit::toggle_task,
+            edit::write_export,
+            search::search_text,
+            seen::diff_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Readout");

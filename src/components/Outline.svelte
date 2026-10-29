@@ -15,7 +15,6 @@
   })
 </script>
 
-<div class="panel-title">OUTLINE</div>
 {#if !headings.length}
   <div class="row muted">No headings</div>
 {/if}

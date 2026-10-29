@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { fade } from 'svelte/transition'
+  import { motion } from '../lib/motion'
   import Panzoom, { type PanzoomObject } from '@panzoom/panzoom'
   import { openPath } from '@tauri-apps/plugin-opener'
 
@@ -45,7 +47,7 @@
   }
 </script>
 
-<div class="viewer">
+<div class="viewer" transition:fade={{ duration: motion.dur() }}>
   <div class="bar">
     <span class="muted" style="margin-right:auto">Wheel to zoom, drag to pan, 0 to reset, Esc to close</span>
     {#if isDiagram}<button onclick={copySource}>Copy source</button>{:else}<button onclick={openFile}>Open file</button>{/if}

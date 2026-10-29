@@ -44,6 +44,16 @@ fn on_events(app: &AppHandle, result: DebounceEventResult) {
             if !is_dir && !is_markdown(p, &watch.extensions) {
                 continue;
             }
+            // Atomic saves (write a temp file, rename it over the original) raise a remove for a
+            // path that exists again a moment later. Only a path that is really gone is "removed".
+            let kind = if kind == "removed" && p.exists() {
+                "modified"
+            } else {
+                kind
+            };
+            if crate::edit::is_own_write(app, p) {
+                continue;
+            }
             crate::search::invalidate(app);
             let _ = app.emit(
                 "file-changed",

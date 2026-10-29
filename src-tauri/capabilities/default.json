@@ -8,10 +8,15 @@
     "core:window:allow-close",
     "core:window:allow-destroy",
     "dialog:allow-open",
+    "dialog:allow-save",
+    "dialog:allow-ask",
+    "dialog:allow-message",
     "opener:allow-open-url",
     {
       "identifier": "opener:allow-open-path",
       "allow": [{ "path": "**" }]
-    }
+    },
+    "updater:default",
+    "process:allow-restart"
   ]
 }

@@ -15,6 +15,9 @@ export type RenderedDoc = {
   resolvedPaths: Record<string, ResolvedPath>
   plainTextFallback: boolean
   lossy: boolean
+  /** File modification time when rendered; writes send it back so a changed file is never overwritten. */
+  mtimeMs: number
+  crlf: boolean
 }
 
 export type FileStatus = 'seen' | 'new' | 'changed'
@@ -29,7 +32,15 @@ export type Settings = {
   watch: { folders: string[]; extensions: string[]; excludeFolders: string[] }
   reading: { fontFamily: string; fontSize: number; maxWidth: number; followMode: boolean }
   explorer: { showExplorer: boolean; showOutline: boolean }
+  layout: { explorerWidth: number; outlineWidth: number }
+  updates: { autoCheck: boolean; lastCheckMs: number; skippedVersion: string }
+  editing: { allowEdits: boolean }
 }
+
+export type SourceFile = { text: string; mtimeMs: number; crlf: boolean; lossy: boolean }
+export type SavedFile = { mtimeMs: number }
+export type TextHit = { path: string; rel: string; line: number; text: string; start: number; end: number }
+export type DiffRow = { kind: 'same' | 'added' | 'removed' | 'changed'; oldLine: number | null; newLine: number | null; oldText: string; newText: string }
 
 export type TabState = { path: string; pinned: boolean; scrollLine: number }
 export type Session = {
@@ -41,7 +52,9 @@ export type Session = {
   roots: string[]
 }
 
-export type AppError = { kind: 'NotFound' | 'Io' | 'Settings' | 'Editor'; message: string }
+export type AppError = { kind: 'NotFound' | 'Io' | 'Settings' | 'Editor' | 'Conflict' | 'ReadOnly'; message: string }
+
+export const isConflict = (e: unknown) => !!e && typeof e === 'object' && (e as AppError).kind === 'Conflict'
 
 export const api = {
   renderFile: (path: string) => invoke<RenderedDoc>('render_file', { path }),
@@ -57,6 +70,16 @@ export const api = {
   openInEditor: (path: string, line: number) => invoke<void>('open_in_editor', { path, line }),
   takeStartupPaths: () => invoke<string[]>('take_startup_paths'),
   updateWatch: (recursive: string[], flat: string[]) => invoke<void>('update_watch', { recursive, flat }),
+  renderMarkdown: (path: string, text: string) => invoke<RenderedDoc>('render_markdown', { path, text }),
+  readSource: (path: string) => invoke<SourceFile>('read_source', { path }),
+  saveFile: (path: string, text: string, baseMtimeMs: number, force = false) =>
+    invoke<SavedFile>('save_file', { path, text, baseMtimeMs, force }),
+  toggleTask: (path: string, line: number, checked: boolean, baseMtimeMs: number) =>
+    invoke<SavedFile>('toggle_task', { path, line, checked, baseMtimeMs }),
+  searchText: (query: string, roots: string[], caseSensitive: boolean) =>
+    invoke<TextHit[]>('search_text', { query, roots, caseSensitive }),
+  diffFile: (path: string) => invoke<DiffRow[]>('diff_file', { path }),
+  writeExport: (dest: string, content: string) => invoke<void>('write_export', { dest, content }),
 }
 
 export const onFilesOpened = (cb: (paths: string[]) => void) =>

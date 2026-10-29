@@ -15,6 +15,12 @@
     workspace.markSeen(tab.path)
   }
 
+  function viewChanges() {
+    if (!tab) return
+    ui.diffPath = tab.path
+    ui.page = 'diff'
+  }
+
   function toggleFollow() {
     if (!settings.value) return
     settings.value.reading.followMode = !settings.value.reading.followMode
@@ -34,11 +40,15 @@
     {#if doc.plainTextFallback}<span class="msg">Large file shown as plain text</span>{/if}
     {#if tab && tab.changedCount}
       <span class="msg">{tab.changedCount} {tab.changedCount === 1 ? 'section' : 'sections'} changed</span>
+      <button onclick={viewChanges}>View changes</button>
       <button onclick={clearChanged}>Clear</button>
     {/if}
   {/if}
   <span class="spacer"></span>
-  <button onclick={toggleFollow} title="Ctrl+Shift+F">Follow {settings.value?.reading.followMode ? 'on' : 'off'}</button>
+  {#if settings.value && settings.value.reading.fontSize !== 15}
+    <span title="Ctrl+0 resets">Text {Math.round((settings.value.reading.fontSize / 15) * 100)}%</span>
+  {/if}
+  <button onclick={toggleFollow} title="Ctrl+Alt+F">Follow {settings.value?.reading.followMode ? 'on' : 'off'}</button>
   <span>{watching ? `Watching ${watching} ${watching === 1 ? 'folder' : 'folders'}` : 'No watched folders'}</span>
   <span>Ctrl+P</span>
 </div>

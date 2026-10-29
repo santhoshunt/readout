@@ -1,0 +1,148 @@
+# Builds the Windows installer, optionally signs it through SignPath, signs it for the updater, and
+# creates a draft GitHub release. Publishing the draft stays a human step: drafts are never offered
+# to installed copies, because the updater only reads releases/latest.
+#
+# Tag push "v1.2.3": full release; the tag must equal the version in src-tauri/tauri.conf.json.
+# Manual run (workflow_dispatch): dry run; the files are uploaded as the "dry-run" workflow artifact.
+#
+# Secrets:   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD, SIGNPATH_API_TOKEN
+# Variables: SIGNPATH_ENABLED ("true" once SignPath approves the project), SIGNPATH_ORGANIZATION_ID,
+#            SIGNPATH_PROJECT_SLUG, SIGNPATH_POLICY_SLUG
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      # Bundling needs the updater key too, because createUpdaterArtifacts is on.
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the version and check the tag
+        id: ver
+        shell: pwsh
+        run: |
+          $v = node -p "require('./src-tauri/tauri.conf.json').version"
+          if ($env:GITHUB_EVENT_NAME -eq 'push' -and $env:GITHUB_REF_NAME -ne "v$v") {
+            throw "Tag $env:GITHUB_REF_NAME does not match version $v in src-tauri/tauri.conf.json"
+          }
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) { throw 'Secret TAURI_SIGNING_PRIVATE_KEY is not set' }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          "installer=src-tauri/target/release/bundle/nsis/Readout_${v}_x64-setup.exe" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # Pinned to a commit: a third-party action, so a moved tag can't change what runs here.
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Build readout.exe
+        run: npx tauri build --no-bundle
+
+      - name: Upload the unsigned exe for SignPath
+        id: upload-exe
+        if: vars.SIGNPATH_ENABLED == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-exe
+          path: src-tauri/target/release/readout.exe
+          archive: false
+
+      - name: Sign readout.exe
+        if: vars.SIGNPATH_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: exe
+          github-artifact-id: ${{ steps.upload-exe.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-exe
+          skip-decompress: true
+
+      - name: Put the signed exe back
+        if: vars.SIGNPATH_ENABLED == 'true'
+        shell: pwsh
+        run: Copy-Item signed-exe/readout.exe src-tauri/target/release/readout.exe -Force
+
+      # --no-binary-patching keeps the exe exactly as signed. Readout ships NSIS only, so the
+      # updater doesn't need the bundle type written into the binary.
+      - name: Bundle the NSIS installer
+        run: npx tauri bundle --bundles nsis --no-binary-patching --no-sign
+
+      - name: Upload the unsigned installer for SignPath
+        id: upload-installer
+        if: vars.SIGNPATH_ENABLED == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-installer
+          path: ${{ steps.ver.outputs.installer }}
+          archive: false
+
+      - name: Sign the installer
+        if: vars.SIGNPATH_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.upload-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-installer
+          skip-decompress: true
+
+      - name: Put the signed installer back
+        if: vars.SIGNPATH_ENABLED == 'true'
+        shell: pwsh
+        run: Copy-Item "signed-installer/$(Split-Path -Leaf '${{ steps.ver.outputs.installer }}')" '${{ steps.ver.outputs.installer }}' -Force
+
+      # Signed last, over the final bytes: code signing changes the file, which would break an
+      # updater signature made earlier.
+      - name: Sign the installer for the updater
+        run: npx tauri signer sign --app-version ${{ steps.ver.outputs.version }} "${{ steps.ver.outputs.installer }}"
+
+      - name: Write latest.json
+        run: node scripts/write-latest-json.mjs ${{ steps.ver.outputs.version }} "${{ steps.ver.outputs.installer }}" > latest.json
+
+      - name: Create the draft release
+        if: github.event_name == 'push'
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          $i = '${{ steps.ver.outputs.installer }}'
+          gh release create "v$v" --draft --title "Readout $v" --notes-file RELEASE_NOTES.md $i "$i.sig" latest.json
+
+      - name: Upload the dry-run files
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: dry-run
+          path: |
+            ${{ steps.ver.outputs.installer }}
+            ${{ steps.ver.outputs.installer }}.sig
+            latest.json

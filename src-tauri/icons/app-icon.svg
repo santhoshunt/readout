@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7f77dd"/>
+      <stop offset="1" stop-color="#4a41a8"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="200" fill="url(#bg)"/>
+  <!-- a tab sitting on the page, the app's browser-style tabs -->
+  <path d="M300 250 h170 a24 24 0 0 1 22 15 l22 55 H278 l22 -55 z" fill="#ffffff" opacity="0.55"/>
+  <!-- the document, with a folded corner -->
+  <path d="M278 320 H640 L746 426 V774 a36 36 0 0 1 -36 36 H314 a36 36 0 0 1 -36 -36 Z" fill="#ffffff"/>
+  <path d="M640 320 V390 a36 36 0 0 0 36 36 H746 Z" fill="#d9d5f7"/>
+  <!-- heading and text lines -->
+  <rect x="350" y="470" width="250" height="40" rx="20" fill="#534ab7"/>
+  <rect x="350" y="560" width="320" height="26" rx="13" fill="#b7b1ec"/>
+  <rect x="350" y="626" width="290" height="26" rx="13" fill="#b7b1ec"/>
+  <rect x="350" y="692" width="200" height="26" rx="13" fill="#b7b1ec"/>
+</svg>

@@ -1,7 +1,7 @@
 [package]
 name = "readout"
-version = "0.1.0"
-description = "A read-only Markdown viewer for Windows that opens files in tabs and watches AI agent output folders"
+version = "0.2.0"
+description = "A Markdown viewer for Windows that opens files in tabs and watches AI agent output folders"
 authors = ["Santhosh K"]
 license = "MIT"
 repository = "https://github.com/santhoshunt/readout"
@@ -20,6 +20,9 @@ tauri = { version = "2.12.5", features = [] }
 tauri-plugin-single-instance = "2.5"
 tauri-plugin-dialog = "2.8"
 tauri-plugin-opener = "2.7"
+# Pinned: crates.io also lists 3.0 alphas for both, which a loose requirement could pick up.
+tauri-plugin-updater = "=2.14.1"
+tauri-plugin-process = "=2.4.0"
 comrak = { version = "0.59", default-features = false, features = ["syntect"] }
 # comrak's syntect feature leaves the regex engine to us; fancy-regex is pure Rust, so no C build.
 syntect = { version = "5.3", default-features = false, features = ["default-fancy"] }

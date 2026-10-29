@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { fade } from 'svelte/transition'
+  import { motion } from '../lib/motion'
   import { colorsFor, elements, groupNames, resolveTheme, type ThemeName } from '../lib/theme/elements'
   import { settings } from '../lib/stores/settings.svelte'
 
@@ -25,7 +27,7 @@
   }
 </script>
 
-<div class="page">
+<div class="page" transition:fade={{ duration: motion.fast() }}>
   <div class="content">
     <h2>Element colors</h2>
     <div class="setting">

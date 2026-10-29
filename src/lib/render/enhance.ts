@@ -192,8 +192,17 @@ export function renderDiagrams(root: HTMLElement, scroller: HTMLElement, isStale
   next()
 }
 
+/** comrak renders task boxes disabled; editable documents get clickable ones that write to the file. */
+function enableTasks(root: HTMLElement, editable: boolean) {
+  for (const box of root.querySelectorAll<HTMLInputElement>('li.task-list-item input[type="checkbox"]')) {
+    box.disabled = !editable
+    box.title = editable ? 'Click to tick or untick; saves to the file' : ''
+  }
+}
+
 /** Everything that runs after the HTML is in the page. Returns the number of changed blocks. */
-export function enhance(root: HTMLElement, scroller: HTMLElement, doc: RenderedDoc, isStale: () => boolean): number {
+export function enhance(root: HTMLElement, scroller: HTMLElement, doc: RenderedDoc, isStale: () => boolean, editable = false): number {
+  enableTasks(root, editable)
   addCopyButtons(root)
   linkPaths(root, doc)
   guardImages(root)

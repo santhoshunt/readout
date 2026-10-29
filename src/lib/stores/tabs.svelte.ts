@@ -14,6 +14,13 @@ export type Tab = {
   changedCount: number
   /** A request to scroll to a source line; seq makes repeated jumps to one line fire. */
   jump: { line: number; seq: number } | null
+  /** Files this tab has shown through followed links; historyIndex is the one on screen. */
+  history: { path: string; line: number }[]
+  historyIndex: number
+  /** The F2 split source view is open. */
+  editing: boolean
+  /** The split view holds text that differs from the file on disk. */
+  dirty: boolean
 }
 
 const KEEP_MOUNTED = 8
@@ -54,7 +61,11 @@ class TabsStore {
       if (opts.scrollLine) this.jumpTo(existing, opts.scrollLine)
       return
     }
-    this.tabs.push({ id: nextId++, path, pinned: !!opts.pinned, scrollLine: opts.scrollLine ?? 0, doc: null, error: '', deleted: false, renderId: 0, changedCount: 0, jump: null })
+    const line = opts.scrollLine ?? 0
+    this.tabs.push({
+      id: nextId++, path, pinned: !!opts.pinned, scrollLine: line, doc: null, error: '', deleted: false, renderId: 0, changedCount: 0, jump: null,
+      history: [{ path, line }], historyIndex: 0, editing: false, dirty: false,
+    })
     const tab = this.tabs[this.tabs.length - 1]
     this.recentFiles = [{ path, openedAt: new Date().toISOString() }, ...this.recentFiles.filter((r) => pathKey(r.path) !== pathKey(path))].slice(0, 30)
     if (!opts.background) this.activate(this.tabs.length - 1)
@@ -133,6 +144,54 @@ class TabsStore {
   jumpTo(i: number, line: number) {
     const t = this.tabs[i]
     if (t) t.jump = { line, seq: (t.jump?.seq ?? 0) + 1 }
+  }
+
+  /** Shows another file in the same tab, as a browser link does. A file already open elsewhere gets its tab instead. */
+  navigate(i: number, path: string, line = 0, anchor = '') {
+    const t = this.tabs[i]
+    if (!t) return
+    if (pathKey(t.path) === pathKey(path)) return this.jumpTo(i, line || this.anchorLine(t, anchor))
+    const other = this.indexOf(path)
+    if (other >= 0) {
+      this.activate(other)
+      if (line) this.jumpTo(other, line)
+      return
+    }
+    t.history = t.history.slice(0, t.historyIndex + 1)
+    t.history[t.historyIndex] = { path: t.path, line: t.scrollLine }
+    t.history.push({ path, line })
+    t.historyIndex++
+    this.show(t, path, line, anchor)
+  }
+
+  /** Line of the heading whose id matches a #fragment, the way GitHub builds heading ids. */
+  private anchorLine(t: Tab, anchor: string) {
+    return anchor ? (t.doc?.headings.find((h) => h.id === anchor)?.line ?? 0) : 0
+  }
+
+  /** Moves through the tab's history: -1 back, +1 forward. */
+  step(i: number, dir: -1 | 1) {
+    const t = this.tabs[i]
+    const target = t?.history[t.historyIndex + dir]
+    if (!t || !target) return false
+    t.history[t.historyIndex] = { path: t.path, line: t.scrollLine }
+    t.historyIndex += dir
+    this.show(t, target.path, target.line)
+    return true
+  }
+
+  private show(t: Tab, path: string, line: number, anchor = '') {
+    t.path = path
+    t.doc = null
+    t.error = ''
+    t.deleted = false
+    t.scrollLine = line
+    t.changedCount = 0
+    this.recentFiles = [{ path, openedAt: new Date().toISOString() }, ...this.recentFiles.filter((r) => pathKey(r.path) !== pathKey(path))].slice(0, 30)
+    this.load(t).then(() => {
+      const target = line || this.anchorLine(t, anchor)
+      if (target) this.jumpTo(this.tabs.indexOf(t), target)
+    })
   }
 
   title(t: Tab) {

@@ -90,6 +90,131 @@ fn walk(roots: &[String], extensions: &[String], exclude: &[String]) -> Vec<Inde
     out
 }
 
+/// Brings the file index up to date for the explorer roots plus the watched folders.
+fn refresh(app: &AppHandle, roots: Vec<String>) {
+    let watch = crate::settings::current(app).watch;
+    let mut all_roots = roots;
+    all_roots.extend(watch.folders.iter().cloned());
+    all_roots.sort();
+    all_roots.dedup();
+    let state = app.state::<SearchState>();
+    let mut idx = state.0.lock().unwrap();
+    if idx.stale || idx.roots != all_roots {
+        idx.files = walk(&all_roots, &watch.extensions, &watch.exclude_folders);
+        idx.roots = all_roots;
+        idx.stale = false;
+    }
+}
+
+const MAX_TEXT_HITS: usize = 1000;
+const MAX_HITS_PER_FILE: usize = 50;
+const PREVIEW_CHARS: usize = 160;
+
+#[derive(Serialize, Clone, Debug)]
+pub struct TextHit {
+    pub path: String,
+    pub rel: String,
+    pub line: u32,
+    /// The matching line, trimmed around the match when it is long.
+    pub text: String,
+    /// Match position inside `text`, in UTF-16 units so JavaScript can slice it directly.
+    pub start: u32,
+    pub end: u32,
+}
+
+fn utf16_len(s: &str) -> u32 {
+    s.encode_utf16().count() as u32
+}
+
+/// Plain substring search through every indexed Markdown file, line by line.
+#[tauri::command]
+pub async fn search_text(
+    app: AppHandle,
+    query: String,
+    roots: Vec<String>,
+    case_sensitive: bool,
+) -> AppResult<Vec<TextHit>> {
+    let app2 = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if query.trim().is_empty() {
+            return Ok(Vec::new());
+        }
+        refresh(&app2, roots);
+        let files: Vec<(PathBuf, String)> = {
+            let state = app2.state::<SearchState>();
+            let idx = state.0.lock().unwrap();
+            idx.files
+                .iter()
+                .map(|f| (f.path.clone(), f.rel.clone()))
+                .collect()
+        };
+        let needle = if case_sensitive {
+            query.clone()
+        } else {
+            query.to_lowercase()
+        };
+        let mut hits = Vec::new();
+        for (path, rel) in files {
+            let Ok((text, _)) = crate::render::read_text(&path) else {
+                continue;
+            };
+            if text.len() > crate::render::PLAIN_TEXT_LIMIT {
+                continue;
+            }
+            let mut in_file = 0;
+            for (n, line) in text.lines().enumerate() {
+                let hay = if case_sensitive {
+                    line.to_string()
+                } else {
+                    line.to_lowercase()
+                };
+                // Lowercasing can change byte lengths for some scripts; only use positions when they line up.
+                let Some(at) = hay.find(&needle).filter(|_| hay.len() == line.len()) else {
+                    if hay.contains(&needle) {
+                        hits.push(TextHit {
+                            path: path.to_string_lossy().to_string(),
+                            rel: rel.clone(),
+                            line: n as u32 + 1,
+                            text: line.chars().take(PREVIEW_CHARS).collect(),
+                            start: 0,
+                            end: 0,
+                        });
+                        in_file += 1;
+                    }
+                    continue;
+                };
+                let end = at + needle.len();
+                // Keep about 40 characters of context before a match deep in a long line.
+                let from = line[..at]
+                    .char_indices()
+                    .rev()
+                    .nth(40)
+                    .map(|(i, _)| i)
+                    .unwrap_or(0);
+                let shown: String = line[from..].chars().take(PREVIEW_CHARS).collect();
+                hits.push(TextHit {
+                    path: path.to_string_lossy().to_string(),
+                    rel: rel.clone(),
+                    line: n as u32 + 1,
+                    start: utf16_len(&line[from..at]),
+                    end: utf16_len(&line[from..end]).min(utf16_len(&shown)),
+                    text: shown,
+                });
+                in_file += 1;
+                if in_file >= MAX_HITS_PER_FILE || hits.len() >= MAX_TEXT_HITS {
+                    break;
+                }
+            }
+            if hits.len() >= MAX_TEXT_HITS {
+                break;
+            }
+        }
+        Ok(hits)
+    })
+    .await
+    .map_err(|e| crate::error::AppError::Io(std::io::Error::other(e.to_string())))?
+}
+
 fn headings_of(path: &Path) -> Vec<(String, u32)> {
     let Ok((text, _)) = crate::render::read_text(path) else {
         return Vec::new();
@@ -123,19 +248,9 @@ pub async fn palette_query(
 ) -> AppResult<Vec<PaletteHit>> {
     let app2 = app.clone();
     let hits = tauri::async_runtime::spawn_blocking(move || {
-        let watch = crate::settings::current(&app2).watch;
-        let mut all_roots = roots;
-        all_roots.extend(watch.folders.iter().cloned());
-        all_roots.sort();
-        all_roots.dedup();
-
+        refresh(&app2, roots);
         let state = app2.state::<SearchState>();
         let mut idx = state.0.lock().unwrap();
-        if idx.stale || idx.roots != all_roots {
-            idx.files = walk(&all_roots, &watch.extensions, &watch.exclude_folders);
-            idx.roots = all_roots;
-            idx.stale = false;
-        }
 
         let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
         let pattern = Pattern::parse(&query, CaseMatching::Ignore, Normalization::Smart);

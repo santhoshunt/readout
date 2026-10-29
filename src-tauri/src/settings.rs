@@ -18,6 +18,46 @@ pub struct Settings {
     pub watch: WatchSettings,
     pub reading: ReadingSettings,
     pub explorer: ExplorerSettings,
+    pub layout: LayoutSettings,
+    pub updates: UpdateSettings,
+    pub editing: EditingSettings,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase", default)]
+pub struct LayoutSettings {
+    pub explorer_width: u32,
+    pub outline_width: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct UpdateSettings {
+    /// Off until the user opts in; nothing contacts the network before that.
+    pub auto_check: bool,
+    pub last_check_ms: u64,
+    pub skipped_version: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase", default)]
+pub struct EditingSettings {
+    pub allow_edits: bool,
+}
+
+impl Default for LayoutSettings {
+    fn default() -> Self {
+        LayoutSettings {
+            explorer_width: 250,
+            outline_width: 220,
+        }
+    }
+}
+
+impl Default for EditingSettings {
+    fn default() -> Self {
+        EditingSettings { allow_edits: true }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -64,6 +104,9 @@ impl Default for Settings {
             watch: WatchSettings::default(),
             reading: ReadingSettings::default(),
             explorer: ExplorerSettings::default(),
+            layout: LayoutSettings::default(),
+            updates: UpdateSettings::default(),
+            editing: EditingSettings::default(),
         }
     }
 }
@@ -143,9 +186,12 @@ pub fn current(app: &AppHandle) -> Settings {
     let state = app.state::<SettingsState>();
     let mut guard = state.0.lock().unwrap();
     if guard.is_none() {
-        let loaded = data_dir(app)
+        let mut loaded: Settings = data_dir(app)
             .map(|d| read_json(&d.join("settings.json")))
             .unwrap_or_default();
+        // A hand-edited or very old file must not leave a panel too narrow to grab or wider than the window.
+        loaded.layout.explorer_width = loaded.layout.explorer_width.clamp(160, 480);
+        loaded.layout.outline_width = loaded.layout.outline_width.clamp(160, 480);
         *guard = Some(loaded);
     }
     guard.clone().unwrap()

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { fade, scale } from 'svelte/transition'
+  import { motion } from '../lib/motion'
   import { api, baseName, type PaletteHit, type RenderedDoc } from '../lib/ipc'
   import type { Command } from '../lib/commands'
   import { documentHtml } from '../lib/render/enhance'
@@ -105,8 +107,8 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="overlay" onclick={() => (ui.paletteOpen = false)}>
-  <div class="palette" onclick={(e) => e.stopPropagation()}>
+<div class="overlay" onclick={() => (ui.paletteOpen = false)} transition:fade={{ duration: motion.fast() }}>
+  <div class="palette" onclick={(e) => e.stopPropagation()} transition:scale={{ start: 0.97, duration: motion.dur(), easing: motion.ease }}>
     <input bind:this={input} bind:value={query} onkeydown={onKey} placeholder="Search files, or type > commands, @ headings here, # headings everywhere" spellcheck="false" />
     <div class="split">
       <div class="results">

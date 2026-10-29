@@ -1,13 +1,20 @@
 <script lang="ts">
+  import { fade } from 'svelte/transition'
   import { open } from '@tauri-apps/plugin-dialog'
+  import { getVersion } from '@tauri-apps/api/app'
   import { api, type EditorPreset } from '../lib/ipc'
   import type { Command } from '../lib/commands'
+  import { motion } from '../lib/motion'
   import { matches, schema, sections } from '../lib/settings/schema'
   import { settings } from '../lib/stores/settings.svelte'
   import { ui } from '../lib/stores/ui.svelte'
 
-  type Props = { commands: Command[]; onwatchchange: () => void }
-  let { commands, onwatchchange }: Props = $props()
+  type Props = { commands: Command[]; oncheckupdates: () => void }
+  let { commands, oncheckupdates }: Props = $props()
+
+  let version = $state('')
+  getVersion().then((v) => (version = v))
+  const onwatchchange = () => {}
 
   let query = $state('')
   let section = $state('General')
@@ -53,7 +60,7 @@
   }
 </script>
 
-<div class="page">
+<div class="page" transition:fade={{ duration: motion.fast() }}>
   <div class="nav">
     <input bind:value={query} placeholder="Search settings" spellcheck="false" />
     {#if hits.length || query.trim()}
@@ -95,7 +102,15 @@
             </div>
           {/if}
         </div>
-        {#if d.id === 'showExplorer'}
+        {#if d.id === 'about'}
+          <span class="muted">Readout {version}</span>
+        {:else if d.id === 'autoUpdate'}
+          <input type="checkbox" bind:checked={s.updates.autoCheck} onchange={save} />
+        {:else if d.id === 'checkNow'}
+          <button onclick={oncheckupdates}>Check now</button>
+        {:else if d.id === 'allowEdits'}
+          <input type="checkbox" bind:checked={s.editing.allowEdits} onchange={save} />
+        {:else if d.id === 'showExplorer'}
           <input type="checkbox" bind:checked={s.explorer.showExplorer} onchange={save} />
         {:else if d.id === 'showOutline'}
           <input type="checkbox" bind:checked={s.explorer.showOutline} onchange={save} />
