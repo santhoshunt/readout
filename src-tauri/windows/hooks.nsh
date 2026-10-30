@@ -70,6 +70,10 @@
     FileClose $R6
     MessageBox MB_OK|MB_ICONINFORMATION "Readout could not add itself to your PATH automatically. To use 'readout .' in a terminal, add this folder to your user PATH:$\r$\n$\r$\n$INSTDIR"
   ${EndIf}
+
+  ; Tells Explorer the file types and icons changed, so an update drops the cached old icon.
+  ; Tauri's FileAssociation.nsh defines this macro but its installer never calls it.
+  !insertmacro UPDATEFILEASSOC
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
