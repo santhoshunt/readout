@@ -24,6 +24,16 @@ class WorkspaceStore {
     return (settings.value?.watch.folders ?? []).some((f) => isUnder(path, f))
   }
 
+  /** Adds the folder to the watch list or takes it off. The watcher effect in App picks up the change. */
+  toggleWatch(path: string) {
+    const w = settings.value?.watch
+    if (!w) return
+    const k = pathKey(path)
+    if (w.folders.some((f) => pathKey(f) === k)) w.folders = w.folders.filter((f) => pathKey(f) !== k)
+    else w.folders.push(path)
+    settings.changed()
+  }
+
   noteStatus(path: string, status: FileStatus) {
     const k = pathKey(path)
     if (status === 'seen') delete this.unseen[k]

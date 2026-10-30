@@ -3,6 +3,7 @@
   import { settings } from '../lib/stores/settings.svelte'
   import { tabs } from '../lib/stores/tabs.svelte'
   import { workspace } from '../lib/stores/workspace.svelte'
+  import Icon from './Icon.svelte'
   import TreeNode from './TreeNode.svelte'
 
   type Props = { onopenfolder: () => void }
@@ -25,14 +26,20 @@
 {/if}
 {#each shown as { p, watched } (pathKey(p))}
   {@const k = pathKey(p)}
+  {@const own = settings.value?.watch.folders.some((f) => pathKey(f) === k) ?? false}
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
   <div class="row root-row" title={p} onclick={() => (workspace.expanded[k] = !workspace.expanded[k])}>
     <span>{workspace.expanded[k] ? '▾' : '▸'}</span>
     <span class="label">{baseName(p).toUpperCase()}</span>
-    {#if watched}<span class="muted" title="New and changed files get badges">watched</span>{/if}
+    <button class="row-icon" class:on={watched} aria-pressed={watched}
+      aria-label={watched ? 'Stop watching this folder' : 'Watch this folder'}
+      title={own ? 'Watching for new and changed files. Click to stop.'
+        : watched ? 'Watched as part of a parent folder. Change it in Settings.'
+        : 'Not watching. Click to mark new and changed files.'}
+      onclick={(e) => { e.stopPropagation(); if (own || !watched) workspace.toggleWatch(p) }}><Icon name={watched ? 'eye' : 'eyeOff'} /></button>
     {#if workspace.roots.some((r) => pathKey(r) === k)}
-      <button class="x" style="border:0;background:none;padding:0 4px" aria-label="Remove folder from explorer"
-        onclick={(e) => { e.stopPropagation(); workspace.removeRoot(p) }}>✕</button>
+      <button class="row-icon on-hover" aria-label="Close folder" title="Close folder. Files on disk are not touched."
+        onclick={(e) => { e.stopPropagation(); workspace.removeRoot(p) }}><Icon name="folderX" /></button>
     {/if}
   </div>
   {#if workspace.expanded[k]}<TreeNode path={p} depth={1} />{/if}

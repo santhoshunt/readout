@@ -6,21 +6,23 @@
   import { tabs } from '../lib/stores/tabs.svelte'
   import { ui } from '../lib/stores/ui.svelte'
   import { workspace } from '../lib/stores/workspace.svelte'
+  import Icon from './Icon.svelte'
   import TabList from './TabList.svelte'
+  import TabMenu from './TabMenu.svelte'
 
-  type Props = { onclosetab: (i: number) => void }
+  type Props = { onclosetab: (i: number, force?: boolean) => Promise<boolean> }
   let { onclosetab }: Props = $props()
 
   let dragFrom = -1
   let strip: HTMLDivElement
   let listOpen = $state(false)
+  let menu = $state<{ index: number; x: number; y: number } | null>(null)
 
   const pageNames: Record<string, string> = { settings: 'Settings', appearance: 'Element colors', diff: 'Changes' }
 
   function onMenu(e: MouseEvent, i: number) {
     e.preventDefault()
-    tabs.togglePin(i)
-    ui.say(tabs.tabs[i]?.pinned ? 'Pinned tabs stay at the left and ignore Ctrl+W.' : 'Tab unpinned.')
+    menu = { index: i, x: e.clientX, y: e.clientY }
   }
 
   // A vertical wheel over the tab strip scrolls it sideways, like a browser.
@@ -53,7 +55,7 @@
         class="tab"
         class:active={i === tabs.active && !ui.page}
         class:deleted={t.deleted}
-        title={t.path + (t.pinned ? ' (pinned, right-click to unpin)' : ' (right-click to pin)')}
+        title={t.path}
         draggable="true"
         in:fly={{ y: -4, duration: motion.dur(), easing: motion.ease }}
         ondragstart={() => (dragFrom = i)}
@@ -67,11 +69,12 @@
         oncontextmenu={(e) => onMenu(e, i)}
       >
         {#if unseen}<span class="dot" class:changed={unseen === 'changed'}></span>{/if}
-        {#if t.pinned}<span class="muted">●</span>{/if}
         <span class="name">{tabs.title(t)}</span>
         {#if t.dirty}
           <span class="dirty" title="Unsaved changes (Ctrl+S saves)">●</span>
-        {:else if !t.pinned}
+        {:else if t.pinned}
+          <button class="x pin" aria-label="Unpin tab" title="Pinned. Click to unpin." onclick={(e) => { e.stopPropagation(); tabs.togglePin(i) }}><Icon name="pin" /></button>
+        {:else}
           <button class="x" aria-label="Close tab" onclick={(e) => { e.stopPropagation(); onclosetab(i) }}>✕</button>
         {/if}
       </div>
@@ -95,4 +98,5 @@
     </button>
   </div>
   {#if listOpen}<TabList onclose={() => (listOpen = false)} />{/if}
+  {#if menu}<TabMenu {...menu} onclose={() => (menu = null)} {onclosetab} />{/if}
 </div>

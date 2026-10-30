@@ -96,9 +96,10 @@ class TabsStore {
     if (i >= 0) this.tabs[i].deleted = true
   }
 
-  close(i: number) {
+  /** Pinned tabs stay open unless `force` is set, which only the tab menu does after asking. */
+  close(i: number, force = false) {
     const t = this.tabs[i]
-    if (!t || t.pinned) return
+    if (!t || (t.pinned && !force)) return
     this.closed = [{ path: t.path, pinned: false, scrollLine: t.scrollLine }, ...this.closed].slice(0, 20)
     this.tabs.splice(i, 1)
     this.mru = this.mru.filter((x) => x !== t.id)

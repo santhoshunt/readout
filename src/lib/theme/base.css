@@ -94,6 +94,15 @@ input:focus, select:focus { border-color: var(--el-accent); }
 .tab.deleted .name { text-decoration: line-through; }
 .tab .x { border: 0; background: none; padding: 0 3px; opacity: 0.6; }
 .tab .x:hover { opacity: 1; }
+.tab .x.pin { opacity: 0.85; }
+.ctxmenu { position: fixed; z-index: 50; min-width: 220px; padding: 4px; display: flex; flex-direction: column; transform-origin: top left;
+  background: var(--el-chromePanel); border: 1px solid var(--el-chromeBorder); border-radius: 8px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+.ctxmenu button { display: flex; justify-content: space-between; align-items: center; gap: 16px; border: 0; background: none;
+  color: var(--el-chromeText); padding: 6px 10px; border-radius: 5px; text-align: left; }
+.ctxmenu button:hover:not(:disabled) { background: color-mix(in srgb, var(--el-accent) 18%, transparent); }
+.ctxmenu button:disabled { color: var(--el-chromeMuted); opacity: 0.6; cursor: default; }
+.ctxmenu .sep { height: 1px; background: var(--el-chromeBorder); margin: 4px 6px; }
+.ctxmenu .with-icon { display: flex; align-items: center; gap: 8px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--el-badgeNew); flex: none; }
 .dot.changed { background: var(--el-badgeChanged); }
 
@@ -106,6 +115,12 @@ input:focus, select:focus { border-color: var(--el-accent); }
 .badge { font-size: 10px; color: #fff; background: var(--el-badgeNew); border-radius: 4px; padding: 0 5px; flex: none; }
 .badge.changed { background: var(--el-badgeChanged); }
 .root-row { font-weight: 600; font-size: 11px; color: var(--el-chromeMuted); padding-top: 8px; }
+.icon { width: 14px; height: 14px; display: block; flex: none; }
+.row-icon { border: 0; background: none; padding: 2px 3px; color: var(--el-chromeMuted); border-radius: 4px; }
+.row-icon:hover { color: var(--el-chromeText); background: color-mix(in srgb, var(--el-accent) 18%, transparent); }
+.row-icon.on { color: var(--el-chromeText); }
+.row .on-hover { opacity: 0; transition: opacity var(--dur-fast) var(--ease); }
+.row:hover .on-hover, .row .on-hover:focus-visible { opacity: 1; }
 
 /* Status bar */
 .statusbar { display: flex; gap: 16px; align-items: center; padding: 3px 12px; font-size: 12px;

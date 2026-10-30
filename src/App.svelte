@@ -84,8 +84,11 @@
     return false
   }
 
-  async function closeTab(i: number) {
-    if (await confirmLeave(i)) tabs.close(i)
+  /** Resolves false when the user cancels at the unsaved-changes prompt. */
+  async function closeTab(i: number, force = false) {
+    if (!(await confirmLeave(i))) return false
+    tabs.close(i, force)
+    return true
   }
 
   function setFontSize(size: number) {
